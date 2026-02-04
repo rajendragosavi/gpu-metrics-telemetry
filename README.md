@@ -48,7 +48,10 @@ Load images into a KIND cluster (if already created):
 The fastest way to bootstrap everything into a local KIND cluster:
 
 1) Create/ensure cluster exists and build+load images, install monitoring, install app:
-- `make kind-deploy KIND_CLUSTER=<clustername> ENABLE_INFLUXDB=1 INFLUX_PASSWORD='<YOUR_INFLUXDB_PASSWORD>' INFLUX_TOKEN='<YOUR_INFLUXDB_ADMIN_TOKEN>'`
+- `make kind-deploy PLATFORM=linux/arm64 KIND_CLUSTER=<cluster-name> ENABLE_INFLUXDB=1`
+
+Note: PLATFORM=linux/arm64 - for apple silicon
+
 
 What this does:
 - Builds images and loads them into the KIND cluster
@@ -62,7 +65,10 @@ What this does:
 
 3) Port-forward API GW and run curl command to verify /api/v1/gpus endpoint is working:
 - `kubectl -n gpu-telemetry port-forward svc/api-gateway 8080:8080`
+
 - `curl http://localhost:8080/api/v1/gpus`
+
+- `curl http://localhost:8080/api/v1/gpus/1/telemetry`
 
 
 4) If you want to tear down the setup

@@ -83,6 +83,8 @@ tidy:
 .PHONY: kind-up kind-delete docker-build kind-load helm-add-repos helm-install-monitoring helm-install helm-uninstall port-forward
 
 KIND_CLUSTER ?= kind-gpu-telemetry
+KUBERNETES_VERSION ?= v1.30.0
+
 NAMESPACE ?= gpu-telemetry
 IMG_TAG ?= dev
 PLATFORM ?= linux/amd64
@@ -94,7 +96,7 @@ docker-build:
 	docker build --platform=$(PLATFORM) -t api-gateway:$(IMG_TAG) -f cmd/api-gateway/Dockerfile .
 
 kind-up:
-	kind create cluster --name $(KIND_CLUSTER) || true
+	kind create cluster --name $(KIND_CLUSTER) --image kindest/node:$(KUBERNETES_VERSION) || true
 
 kind-delete:
 	kind delete cluster --name $(KIND_CLUSTER) || true
