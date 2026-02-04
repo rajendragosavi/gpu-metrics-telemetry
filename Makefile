@@ -85,12 +85,13 @@ tidy:
 KIND_CLUSTER ?= kind-gpu-telemetry
 NAMESPACE ?= gpu-telemetry
 IMG_TAG ?= dev
+PLATFORM ?= linux/amd64
 
 docker-build:
-	docker build -t broker:$(IMG_TAG) -f cmd/mq-broker/Dockerfile .
-	docker build -t collector:$(IMG_TAG) -f cmd/collector/Dockerfile .
-	docker build -t streamer:$(IMG_TAG) -f cmd/streamer/Dockerfile .
-	docker build -t api-gateway:$(IMG_TAG) -f cmd/api-gateway/Dockerfile .
+	docker build --platform=$(PLATFORM) -t broker:$(IMG_TAG) -f cmd/mq-broker/Dockerfile .
+	docker build --platform=$(PLATFORM) -t collector:$(IMG_TAG) -f cmd/collector/Dockerfile .
+	docker build --platform=$(PLATFORM) -t streamer:$(IMG_TAG) -f cmd/streamer/Dockerfile .
+	docker build --platform=$(PLATFORM) -t api-gateway:$(IMG_TAG) -f cmd/api-gateway/Dockerfile .
 
 kind-up:
 	kind create cluster --name $(KIND_CLUSTER) || true
@@ -128,7 +129,7 @@ port-forward:
 
 # One-shot: build, load, install monitoring and app
 .PHONY: kind-deploy
-kind-deploy: docker-build kind-up kind-load helm-add-repos helm-install-monitoring helm-install
+kind-deploy: docker-buildx-all kind-up kind-load helm-add-repos helm-install-monitoring helm-install
 
 # --- Protobuf / gRPC codegen ---
 # Requires: protoc, protoc-gen-go, protoc-gen-go-grpc installed and on PATH
@@ -154,16 +155,16 @@ proto-tools:
 .PHONY: docker-build-broker docker-build-collector docker-build-streamer docker-build-api
 
 docker-build-broker:
-	docker build -t broker:$(IMG_TAG) -f cmd/mq-broker/Dockerfile .
+	docker build --platform=$(PLATFORM) -t broker:$(IMG_TAG) -f cmd/mq-broker/Dockerfile .
 
 docker-build-collector:
-	docker build -t collector:$(IMG_TAG) -f cmd/collector/Dockerfile .
+	docker build --platform=$(PLATFORM) -t collector:$(IMG_TAG) -f cmd/collector/Dockerfile .
 
 docker-build-streamer:
-	docker build -t streamer:$(IMG_TAG) -f cmd/streamer/Dockerfile .
+	docker build --platform=$(PLATFORM) -t streamer:$(IMG_TAG) -f cmd/streamer/Dockerfile .
 
 docker-build-api:
-	docker build -t api-gateway:$(IMG_TAG) -f cmd/api-gateway/Dockerfile .
+	docker build --platform=$(PLATFORM) -t api-gateway:$(IMG_TAG) -f cmd/api-gateway/Dockerfile .
 
 # ---- Independent image loads into KIND ----
 .PHONY: kind-load-broker kind-load-collector kind-load-streamer kind-load-api
@@ -187,3 +188,11 @@ bl-broker: docker-build-broker kind-load-broker
 bl-collector: docker-build-collector kind-load-collector
 bl-streamer: docker-build-streamer kind-load-streamer
 bl-api: docker-build-api kind-load-api
+
+.PHONY: docker-buildx-all
+docker-buildx-all:
+	@docker buildx create --use >/dev/null 2>&1 || true
+	docker buildx build --platform $(PLATFORM) -t broker:$(IMG_TAG) -f cmd/mq-broker/Dockerfile --load .
+	docker buildx build --platform $(PLATFORM) -t collector:$(IMG_TAG) -f cmd/collector/Dockerfile --load .
+	docker buildx build --platform $(PLATFORM) -t streamer:$(IMG_TAG) -f cmd/streamer/Dockerfile --load .
+	docker buildx build --platform $(PLATFORM) -t api-gateway:$(IMG_TAG) -f cmd/api-gateway/Dockerfile --load .
