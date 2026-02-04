@@ -1,10 +1,8 @@
 # GPU Telemetry Pipeline
 
-A lightweight, Kubernetes-first pipeline for ingesting GPU telemetry, transporting it via a gRPC broker, persisting to InfluxDB 2.x, and exposing data through a simple REST API.
-- Components: Streamer, Broker, Collector, API Gateway
-- Storage: InfluxDB 2.x (optional Helm subchart or external)
-- Deploy: Helm chart + KIND convenience targets
-- Observe: kube-prometheus-stack + prebuilt Grafana dashboard
+A lightweight, Kubernetes-first pipeline for ingesting GPU telemetry metrics. It reads metrics from a CSV file and streams them via a gRPC message-broker, persists them into InfluxDB, and exposes data through a simple REST API.
+It has components like - Streamer, Broker, Collector, API Gateway and Influx db storage.
+
 
 ---
 
@@ -15,9 +13,8 @@ A lightweight, Kubernetes-first pipeline for ingesting GPU telemetry, transporti
 - API Gateway exposes REST endpoints to query telemetry (e.g., list GPUs, time-range queries).
 - Prometheus scrapes component metrics; Grafana renders a ready-to-use dashboard.
 
-For a visual, see:
-- `architecture/docs/architecture.md` (human-friendly write-up)
-- `architecture/docs/architecture.mermaid` (diagram)
+For a detailed architecture, see:
+- `architecture/docs/architecture.md`
 
 ---
 
@@ -28,13 +25,14 @@ For a visual, see:
   - kubectl (cluster management)
   - Helm (install charts)
   - Go 1.21+ (build/test locally)
-- Optional (docs/diagrams):
-  - Node + `@mermaid-js/mermaid-cli` or Docker for rendering Mermaid to SVG/PNG
 - Network: ability to bind local ports for `kubectl port-forward`
 
 ---
 
 ## Build
+
+- Git clone the repository.
+
 - Build all component images locally:
   - `make docker-build`
 - Build a single component:
@@ -50,7 +48,7 @@ Load images into a KIND cluster (if already created):
 The fastest way to bootstrap everything into a local KIND cluster:
 
 1) Create/ensure cluster exists and build+load images, install monitoring, install app:
-- `make kind-deploy KIND_CLUSTER=<clustername> ENABLE_INFLUXDB=1 INFLUX_PASSWORD='StrongPass123!' INFLUX_TOKEN='<YOUR_INFLUXDB_ADMIN_TOKEN>'`
+- `make kind-deploy KIND_CLUSTER=<clustername> ENABLE_INFLUXDB=1 INFLUX_PASSWORD='<YOUR_INFLUXDB_PASSWORD>' INFLUX_TOKEN='<YOUR_INFLUXDB_ADMIN_TOKEN>'`
 
 What this does:
 - Builds images and loads them into the KIND cluster
@@ -58,86 +56,41 @@ What this does:
 - Installs the gpu-telemetry Helm chart in the `gpu-telemetry` namespace
 - If `ENABLE_INFLUXDB=1` is set, it also enables and bootstraps the InfluxDB 2.x subchart using the provided admin credentials (user defaults to `admin`, org to `ai_cluster`, bucket to `telemetry`—overridable via make vars)
 
-Make variables you can override:
-- `ENABLE_INFLUXDB` (0/1)
-- `INFLUX_USER` (default `admin`)
-- `INFLUX_PASSWORD` (required when enabled)
-- `INFLUX_TOKEN` (required when enabled)
-- `INFLUX_ORG` (default `ai_cluster`)
-- `INFLUX_BUCKET` (default `telemetry`)
-- `KIND_CLUSTER` (default `kind-gpu-telemetry`)
-- `NAMESPACE` (default `gpu-telemetry`)
-- `IMG_TAG` (default `dev`)
 
-2) Verify components:
+2) Verify if all components are running:
 - `kubectl -n gpu-telemetry get pods`
-- `helm get values -n gpu-telemetry gpu-telemetry -o yaml`
 
-3) Port-forward API and try it:
+3) Port-forward API GW and run curl command to verify /api/v1/gpus endpoint is working:
 - `kubectl -n gpu-telemetry port-forward svc/api-gateway 8080:8080`
 - `curl http://localhost:8080/api/v1/gpus`
 
----
 
-## Deploy via Helm manually
-If you prefer running Helm commands directly:
-
-1) Install monitoring (Prometheus/Grafana):
-- `make helm-install-monitoring`
-
-2) Pull subchart deps and install the app:
-- `helm dependency update ./deploy/charts/gpu-telemetry`
-- With in-cluster InfluxDB enabled:
-```
-helm upgrade --install gpu-telemetry ./deploy/charts/gpu-telemetry \
-  -n gpu-telemetry --create-namespace \
-  --set image.tag=dev \
-  --set influxdb2.enabled=true \
-  --set influxdb2.adminUser.user='admin' \
-  --set influxdb2.adminUser.password='StrongPass123!' \
-  --set influxdb2.adminUser.token='<YOUR_INFLUXDB_ADMIN_TOKEN>' \
-  --set influxdb2.adminUser.organization='ai_cluster' \
-  --set influxdb2.adminUser.bucket='telemetry'
-```
-- Or, with an external InfluxDB:
-```
-helm upgrade --install gpu-telemetry ./deploy/charts/gpu-telemetry \
-  -n gpu-telemetry --create-namespace \
-  --set image.tag=dev \
-  --set influxdb2.enabled=false \
-  --set collector.influx.url='http://YOUR_INFLUXDB:8086' \
-  --set collector.influx.org='ai_cluster' \
-  --set collector.influx.bucket='telemetry' \
-  --set collector.influx.token='<YOUR_TOKEN>' \
-  --set apiGateway.influx.url='http://YOUR_INFLUXDB:8086' \
-  --set apiGateway.influx.org='ai_cluster' \
-  --set apiGateway.influx.bucket='telemetry' \
-  --set apiGateway.influx.token='<YOUR_TOKEN>'
-```
-
-Uninstall:
+4) If you want to tear down the setup
 - `make helm-uninstall`
 
 ---
 
-## Make commands (cheat sheet)
-- Cluster lifecycle
-  - `make kind-up KIND_CLUSTER=<name>`
-  - `make kind-delete KIND_CLUSTER=<name>`
-- Images
-  - `make docker-build` / `make docker-build-collector` (etc.)
+## Important Make commands
+
+### Cluster lifecycle
+- `make kind-up KIND_CLUSTER=<name>`
+- `make kind-delete KIND_CLUSTER=<name>`
+
+### Images
+- `make docker-build` / `make docker-build-collector` (etc.)
   - `make kind-load KIND_CLUSTER=<name>` / `make kind-load-collector` (etc.)
-- Monitoring
-  - `make helm-install-monitoring`
-- App install
-  - `make helm-install ENABLE_INFLUXDB=1 INFLUX_PASSWORD='...' INFLUX_TOKEN='...'`
+
+### Monitoring
+- `make helm-install-monitoring`
+
+### App install
+- `make helm-install ENABLE_INFLUXDB=1 INFLUX_PASSWORD='...' INFLUX_TOKEN='...'`
   - `make helm-uninstall`
-- Port-forward API
+
+### Port-forward API
   - `make port-forward`
 
----
-
-## Tests and Coverage
+### Tests and Coverage
 - Run all tests with coverage profile:
   - `make test`
 - Show coverage summary:
@@ -147,9 +100,7 @@ Uninstall:
 - Per-package quick coverage:
   - `make cover-pkg`
 
----
-
-## OpenAPI and Swagger
+### OpenAPI and Swagger
 - The project serves a Swagger UI at `/swagger` (static files under `api/swagger` when generated).
 - Generate static Swagger UI bundle locally (no server-side build required):
   - `make swagger-static`
@@ -168,6 +119,15 @@ Once the API Gateway is running and port-forwarded:
 ## Grafana Dashboard (What to watch and why)
 
 The chart provisions a ready-to-use dashboard (via ConfigMap) targeting Prometheus. Ensure kube-prometheus-stack is installed in the `monitoring` namespace and the dashboard sidecar picks it up. Each panel below helps you understand system health and throughput.
+
+Please run this commands to port forward the grafana dashboard:
+
+`kubectl port-forward svc/kube-prometheus-stack-grafana -n monitoring 8484:80`
+
+You will see a dasboard ```gpu-telemetry-pipeline``` in the grafana dashboard.
+
+
+Following are some important metrics we are collecting to understand our system performance.
 
 - **Streamer Throughput (msgs/sec)**
   - PromQL: `rate(gpu_telemetry_streamer_items_published_total[1m])`
@@ -211,5 +171,31 @@ The chart provisions a ready-to-use dashboard (via ConfigMap) targeting Promethe
   - High Streamer backpressure + rising Broker queue depth = consumers slow.
   - Collector received >> flushed + high flush latency = storage throttled or under-provisioned.
   - Flat/zero throughput across panels = upstream data stopped or connectivity broken.
+
+
+## How I used AI to build this?
+
+I read the problem statement and I noted down early mind map of how the system will look like for example - the core of the system is message queue. Its a proper producer consumer. I had done something similar but very basic with just golang channels there was no persistence and concepts like back-pressure. 
+
+I  think knowing some basics about queue and backpressure is important to understand this system. I used AI to understand this system and build it. I used Perplexity majorly to brainstorm around edge cases and scenarios to understand nuances of the system. 
+
+Once I got some clarity like - I started noting components and how the component should behave. Like message schema, channel pattern.
+
+I used windsurf to generate code for majorly - queue and collector part where I wanted to handle back-pressure and persistence. Idea of using influxDB came from Perplexity. 
+
+Once system was in place, I started testing it and then added metrics - which is where again I used windsurf to generate code for metrics. 
+
+I prompted exactly what I need to measure and then windsurf generated the code for me. I also brainstormed with Perplexity around what metrics can be useful to measure system health and performance. 
+
+My mantra so far using Code Pilot/AI is  - 
+
+1. First understand the system. Make mental model - put it on paper then brain storm as much as possible using AI tools to make sure we cover all the edge cases and scenarios.
+2. Make a plan or steps of each components and then wherever needed use Perplexity/Windsurf or any AI IDEs to generate code wherever required.
+
+
+I have been using this mantra for last 3 months or so - 
+* I am finding it useful but I am still trying to use it cautiously as I do not want any critical changes to be done by AI where am less blind or less comfortable.
+* For this exercise I used AI heavily as it was a greenfield system but in my current work - I am trying to use it more cautiously.
+
 
 

@@ -127,11 +127,4 @@ Open the diagram for a quick visual:
 - InfluxDB Service: must listen on `:8086` (HTTP). Verify the `influxdb2-auth` Secret.
 - API Gateway logs: Flux query errors and time-range parsing.
 
-## Roadmap
-- Swap CSV for a live DCGM source.
-- Add pluggable storage backends behind the `storage.Store` interface.
-- Optional external MQ for durability and multi‑consumer fan‑out.
-- Multi‑tenant org/bucket isolation and scoped tokens.
-
----
 
