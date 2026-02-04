@@ -1,0 +1,11 @@
+apiVersion: v2
+name: gpu-telemetry
+version: 0.1.0
+description: GPU telemetry pipeline (broker, streamer, collector, api-gateway)
+type: application
+
+dependencies:
+  - name: influxdb2
+    version: ">=2.0.0 <3.0.0"
+    repository: https://helm.influxdata.com/
+    condition: influxdb2.enabled

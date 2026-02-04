@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: collector
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.collector.replicas }}
+  selector:
+    matchLabels:
+      app: collector
+  template:
+    metadata:
+      labels:
+        app: collector
+      annotations:
+        {{- if .Values.prometheusScrape }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.collector.metricsPort }}"
+        prometheus.io/path: "/metrics"
+        {{- end }}
+    spec:
+      containers:
+      - name: collector
+        image: {{ .Values.collector.image }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.collector.metricsPort }}
+          name: metrics
+        args:
+        - -broker=broker.{{ .Values.namespace }}.svc.cluster.local:{{ .Values.broker.grpcPort }}
+        - -workers={{ .Values.collector.workers }}
+        - -batch={{ .Values.collector.batch }}
+        - -flush_ms={{ .Values.collector.flushMs }}
+        - -metrics_addr=:{{ .Values.collector.metricsPort }}
+        - -influx_url={{ if .Values.influxdb2.enabled }}http://influxdb2.{{ .Release.Namespace }}.svc.cluster.local{{ else }}{{ .Values.collector.influx.url }}{{ end }}
+        - -influx_org={{ default .Values.influxdb2.admin.org .Values.collector.influx.org }}
+        - -influx_bucket={{ default .Values.influxdb2.admin.bucket .Values.collector.influx.bucket }}
+        - -influx_token={{ default .Values.influxdb2.admin.token .Values.collector.influx.token }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: collector
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: collector
+spec:
+  selector:
+    app: collector
+  ports:
+  - name: metrics
+    port: {{ .Values.collector.metricsPort }}
+    targetPort: metrics

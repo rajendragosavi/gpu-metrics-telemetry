@@ -1,0 +1,58 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: broker
+  namespace: {{ .Values.serviceMonitor.namespace }}
+  labels:
+    release: {{ .Values.serviceMonitor.releaseLabel }}
+spec:
+  selector:
+    matchLabels:
+      app: broker
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.namespace }}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: collector
+  namespace: {{ .Values.serviceMonitor.namespace }}
+  labels:
+    release: {{ .Values.serviceMonitor.releaseLabel }}
+spec:
+  selector:
+    matchLabels:
+      app: collector
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.namespace }}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: streamer
+  namespace: {{ .Values.serviceMonitor.namespace }}
+  labels:
+    release: {{ .Values.serviceMonitor.releaseLabel }}
+spec:
+  selector:
+    matchLabels:
+      app: streamer
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.namespace }}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}

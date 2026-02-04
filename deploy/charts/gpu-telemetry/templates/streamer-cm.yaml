@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.streamer.configMapName }}
+  namespace: {{ .Values.namespace }}
+data:
+  {{ .Values.streamer.csvFileName }}: |-
+    # Put your CSV content here or override via --set-file
+    gpu_id,value,_field,_measurement,_time
+    0,0.5,dcgm_fi_dev_gpu_util,telemetry,2026-01-26T17:50:00Z

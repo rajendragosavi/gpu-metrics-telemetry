@@ -1,0 +1,73 @@
+image:
+  repo: gpu-telemetry
+  tag: dev
+  pullPolicy: IfNotPresent
+
+broker:
+  image: broker:dev
+  grpcPort: 9000
+  metricsPort: 9001
+  replicas: 1
+
+collector:
+  image: collector:dev
+  replicas: 1
+  workers: 4
+  batch: 500
+  flushMs: 1000
+  metricsPort: 9102
+  influx:
+    url: "http://influxdb.monitoring.svc.cluster.local" # change as needed
+    org: "ai_cluster"
+    bucket: "telemetry"
+    token: "ebcYqpdgAwaGFmTcoYAeeqG05oPsOzumHFSoBvot9Yib5s8enmJu4Tmd6mxJ4KHPF8w-LsGPx52rPdbTSf_OZw==" # supply via secret or values override
+
+streamer:
+  image: streamer:dev
+  replicas: 1
+  csvMountPath: /data
+  csvFileName: dcgm.csv
+  metricsPort: 9101
+  producerId: streamer-1
+  tickMs: 500
+  batch: 50
+  configMapName: streamer-csv
+
+apiGateway:
+  image: api-gateway:dev
+  replicas: 1
+  port: 8080
+  influx:
+    url: "http://influxdb.monitoring.svc.cluster.local"
+    org: "ai_cluster"
+    bucket: "telemetry"
+    token: "ebcYqpdgAwaGFmTcoYAeeqG05oPsOzumHFSoBvot9Yib5s8enmJu4Tmd6mxJ4KHPF8w-LsGPx52rPdbTSf_OZw=="
+
+prometheusScrape: true
+namespace: gpu-telemetry
+
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+  interval: 15s
+  releaseLabel: kube-prometheus-stack
+  
+grafanaDashboard:
+  enabled: true
+  namespace: monitoring
+  name: gpu-telemetry-dashboard
+  folder: GPU Telemetry
+  datasourceVarName: DS_PROMETHEUS
+
+influxdb2:
+  enabled: false
+  fullnameOverride: influxdb2
+  admin:
+    user: admin
+    password: "StrongPass123!"
+    token: "ebcYqpdgAwaGFmTcoYAeeqG05oPsOzumHFSoBvot9Yib5s8enmJu4Tmd6mxJ4KHPF8w-LsGPx52rPdbTSf_OZw=="
+    org: ai_cluster
+    bucket: telemetry
+  service:
+    ports:
+      http: 8086

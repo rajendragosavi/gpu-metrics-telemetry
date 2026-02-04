@@ -1,0 +1,150 @@
+{
+  "__inputs": [],
+  "__requires": [
+    {"type": "grafana", "id": "grafana", "name": "Grafana", "version": "9.0.0"},
+    {"type": "panel", "id": "timeseries", "name": "Time series", "version": "9.0.0"}
+  ],
+  "title": "GPU Telemetry Pipeline",
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "5s",
+  "panels": [
+    {"type": "row", "title": "Streamer", "collapsed": false, "gridPos": {"x": 0, "y": 0, "w": 24, "h": 1}},
+    {
+      "type": "timeseries",
+      "title": "Streamer: Published rate (/s)",
+      "description": "Messages published to the Broker per second. Backpressure series indicates throttling events.",
+      "gridPos": {"x": 0, "y": 1, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "rate(gpu_telemetry_streamer_items_published_total[1m])", "legendFormat": "published"},
+        {"expr": "rate(gpu_telemetry_streamer_backpressure_total[1m])", "legendFormat": "backpressure"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Streamer: Publish latency p95 (s)",
+      "description": "Tail latency of PublishBatch calls to the Broker.",
+      "gridPos": {"x": 12, "y": 1, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, rate(gpu_telemetry_streamer_publish_latency_seconds_bucket[5m]))", "legendFormat": "p95"}
+      ]
+    },
+    {"type": "row", "title": "Broker", "collapsed": false, "gridPos": {"x": 0, "y": 8, "w": 24, "h": 1}},
+    {
+      "type": "timeseries",
+      "title": "Broker: Enqueued vs Delivered (/s)",
+      "description": "Ingress vs egress of the Broker. Gaps imply consumer lag.",
+      "gridPos": {"x": 0, "y": 9, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "rate(gpu_telemetry_broker_messages_enqueued_total[1m])", "legendFormat": "enqueued"},
+        {"expr": "rate(gpu_telemetry_broker_messages_delivered_total[1m])", "legendFormat": "delivered"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Broker: Queue depth",
+      "description": "Current in-flight backlog within the Broker.",
+      "gridPos": {"x": 12, "y": 9, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "gpu_telemetry_broker_queue_depth", "legendFormat": "queue_depth"}
+      ]
+    },
+    {"type": "row", "title": "Collector", "collapsed": false, "gridPos": {"x": 0, "y": 16, "w": 24, "h": 1}},
+    {
+      "type": "timeseries",
+      "title": "Collector: Received/Flushed (/s)",
+      "description": "Ingest vs persisted throughput. Divergence indicates write pressure.",
+      "gridPos": {"x": 0, "y": 17, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "rate(gpu_telemetry_collector_messages_received_total[1m])", "legendFormat": "received"},
+        {"expr": "rate(gpu_telemetry_collector_messages_flushed_total[1m])", "legendFormat": "flushed"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Collector: Flush latency p95 (s)",
+      "description": "Tail latency of batch flush operations into InfluxDB.",
+      "gridPos": {"x": 12, "y": 17, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, rate(gpu_telemetry_collector_flush_latency_seconds_bucket[5m]))", "legendFormat": "p95"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Streamer: Batch pending (items)",
+      "description": "Items currently buffered in the Streamer awaiting publish.",
+      "gridPos": {"x": 0, "y": 24, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "gpu_telemetry_streamer_batch_pending", "legendFormat": "pending"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Broker: Subscribers (count)",
+      "description": "Active collector subscriptions to the Broker.",
+      "gridPos": {"x": 12, "y": 24, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "gpu_telemetry_broker_subscribers", "legendFormat": "subscribers"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Collector: Backlog (items)",
+      "description": "Pending items awaiting flush. Rising values indicate storage pressure.",
+      "gridPos": {"x": 0, "y": 32, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "gpu_telemetry_collector_backlog", "legendFormat": "backlog"}
+      ]
+    },
+    {"type": "row", "title": "System Resources (gpu-telemetry namespace)", "collapsed": false, "gridPos": {"x": 0, "y": 40, "w": 24, "h": 1}},
+    {
+      "type": "timeseries",
+      "title": "Pods CPU (cores) — streamer/collector/broker/influxdb2",
+      "description": "CPU usage per pod in the gpu-telemetry namespace.",
+      "gridPos": {"x": 0, "y": 41, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"gpu-telemetry\", container!=\"\", image!=\"\"}[5m]))",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Pods Memory (working set bytes) — streamer/collector/broker/influxdb2",
+      "description": "Working set memory by pod.",
+      "gridPos": {"x": 12, "y": 41, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"gpu-telemetry\", container!=\"\", image!=\"\"})",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Pods Disk I/O Read (bytes/s)",
+      "description": "Filesystem read throughput per pod.",
+      "gridPos": {"x": 0, "y": 49, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum by (pod) (rate(container_fs_reads_bytes_total{namespace=\"gpu-telemetry\", container!=\"\", image!=\"\"}[5m]))",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Pods Disk I/O Write (bytes/s)",
+      "description": "Filesystem write throughput per pod.",
+      "gridPos": {"x": 12, "y": 49, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum by (pod) (rate(container_fs_writes_bytes_total{namespace=\"gpu-telemetry\", container!=\"\", image!=\"\"}[5m]))",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    }
+  ]
+}

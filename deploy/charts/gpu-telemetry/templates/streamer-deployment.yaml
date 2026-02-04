@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: streamer
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.streamer.replicas }}
+  selector:
+    matchLabels:
+      app: streamer
+  template:
+    metadata:
+      labels:
+        app: streamer
+      annotations:
+        {{- if .Values.prometheusScrape }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.streamer.metricsPort }}"
+        prometheus.io/path: "/metrics"
+        {{- end }}
+    spec:
+      containers:
+      - name: streamer
+        image: {{ .Values.streamer.image }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.streamer.metricsPort }}
+          name: metrics
+        args:
+        - -broker=broker.{{ .Values.namespace }}.svc.cluster.local:{{ .Values.broker.grpcPort }}
+        - -csv=/data/dcgm.csv
+        - -metrics_addr=:{{ .Values.streamer.metricsPort }}
+        - -producer_id={{ .Values.streamer.producerId }}
+        - -batch={{ .Values.streamer.batch }}
+        - -tick_ms={{ .Values.streamer.tickMs }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: streamer
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: streamer
+spec:
+  selector:
+    app: streamer
+  ports:
+  - name: metrics
+    port: {{ .Values.streamer.metricsPort }}
+    targetPort: metrics
