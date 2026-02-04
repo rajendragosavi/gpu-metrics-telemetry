@@ -1,0 +1,116 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "GPU Telemetry API",
+        "version": "1.0.0",
+        "description": "REST API for listing GPUs and querying telemetry."
+    },
+    "paths": {
+        "/api/v1/gpus": {
+            "get": {
+                "summary": "List all GPUs",
+                "operationId": "listGpus",
+                "responses": {
+                    "200": {
+                        "description": "List of GPU IDs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/gpus/{id}/telemetry": {
+            "get": {
+                "summary": "Query telemetry for a GPU",
+                "operationId": "queryTelemetry",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "GPU identifier"
+                    },
+                    {
+                        "name": "start_time",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "description": "Start time (inclusive), RFC3339"
+                    },
+                    {
+                        "name": "end_time",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "description": "End time (inclusive), RFC3339"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Telemetry rows",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Telemetry"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid time window"
+                    },
+                    "404": {
+                        "description": "GPU not found"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "Telemetry": {
+                "type": "object",
+                "properties": {
+                    "GPUId": {
+                        "type": "string"
+                    },
+                    "Timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "Metrics": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "number"
+                        }
+                    }
+                },
+                "required": [
+                    "GPUId",
+                    "Timestamp",
+                    "Metrics"
+                ]
+            }
+        }
+    }
+}

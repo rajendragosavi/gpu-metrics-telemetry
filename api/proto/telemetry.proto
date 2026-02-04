@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package telemetry.v1;
+
+option go_package = "gpu-metric-collector/api/gen/telemetry/v1;telemetryv1";
+
+import "google/protobuf/timestamp.proto";
+
+message TelemetryData {
+  string producer_id = 1;           // Streamer identity (e.g., pod name)
+  string host_id = 2;               // Hostname/node
+  string gpu_id = 3;                // GPU identifier
+  google.protobuf.Timestamp ts = 4; // Source timestamp from streamer
+  map<string, double> metrics = 5;  // Arbitrary numeric metrics
+}
+
+message TelemetryBatch {
+  repeated TelemetryData items = 1;
+}
+
+message PublishResponse {
+  int64 accepted = 1;   // number of items enqueued
+  string status = 2;    // OK, BACKPRESSURE, ERROR
+}
+
+message SubscriptionRequest {
+  string group = 1;     // consumer group (optional)
+  string topic = 2;     // topic (optional for future use)
+}
+
+service Telemetry {
+  // Streamers publish batches (unary for simplicity; can be upgraded to client streaming later)
+  rpc PublishBatch(TelemetryBatch) returns (PublishResponse);
+
+  // Collectors receive a server-side stream of telemetry data (work-queue style)
+  rpc Subscribe(SubscriptionRequest) returns (stream TelemetryData);
+}

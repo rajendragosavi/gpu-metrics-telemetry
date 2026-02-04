@@ -1,0 +1,16 @@
+# Binaries
+/bin/
+/build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go
+*.test
+coverage.out
+
+# Editors
+.idea/
+.vscode/
