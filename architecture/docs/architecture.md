@@ -2,6 +2,10 @@
 
 This document explains our distributed message queue system, what each part does, why it exists, and how data flows from raw CSV to dashboards and APIs. 
 
+
+![Architecture](architecture/docs/flow-diagram.png)
+
+
 ## System Overview
 - We have GPUs producing metrics (for now, from a CSV export). 
 - A Streamer reads that CSV and turns rows into telemetry messages.
@@ -9,10 +13,6 @@ This document explains our distributed message queue system, what each part does
 - A Collector subscribes, validates, batches, and writes them to InfluxDB 2.x.
 - An API Gateway provides simple REST endpoints to query what’s stored.
 - Prometheus and Grafana watch the whole pipeline so you can see if it’s healthy.
-
-Open the diagram for a quick visual:
-- architecture/docs/architecture.mermaid (Mermaid graph)
-
 
 
 
@@ -23,13 +23,13 @@ Open the diagram for a quick visual:
 - Converts each row to a message: it must include a `gpu_id`; rows missing it are skipped.
 - Handles “metric name in one column, numeric value in another” (e.g., `_field` + `_value`).
 - Publishes batches to the Broker to smooth bursts and reduce chattiness.
-- Why it exists: decouple the data source from the rest of the system and provide controlled, backpressured input.
+- Why it exists: to decouple the data source from the rest of the system and provide controlled, backpressured input.
 
 ### Broker (Transport)
-- A simple gRPC-based, in-memory message hub.
+- A simple gRPC-based, in-memory message hub. It's ultimately golang buffered channel.
 - Streamer publishes batches; Collectors subscribe as a work queue.
-- Headless Service for stable DNS and easier client resolution.
-- Why it exists: isolate producers from consumers, absorb small spikes, and provide a clear handoff point with metrics.
+- It uses a Headless Service for stable DNS and easier client resolution.
+- Why it exists: to isolate producers from consumers, absorb small spikes, and provide a clear handoff point with metrics.
 
 ### Collector (Persistence)
 - Subscribes to the Broker stream, validates messages, and drops malformed ones.
@@ -56,7 +56,7 @@ Open the diagram for a quick visual:
 - Grafana uses Prometheus as a datasource; a prebuilt dashboard is provisioned via ConfigMap.
 - Why they exist: you should be able to see throughput, backpressure, errors, and latency at a glance.
 
-## How Data Flows (A day in the life of a metric)
+## How Data Flows (Journey of a message in pipeline)
 1. The Streamer reads a line from the CSV, checks that `gpu_id` is present, maps fields to metrics, and adds it to a batch.
 2. The batch is sent to the Broker via gRPC. If the Broker signals backpressure, the Streamer adapts (smaller batches, waits between sends).
 3. The Collector maintains a subscription to the Broker and pulls messages. It validates each, groups them, and writes to InfluxDB.
@@ -65,8 +65,8 @@ Open the diagram for a quick visual:
 6. Meanwhile, Prometheus scrapes metrics from all components; Grafana panels show health and trends.
 
 ## Design Considerations and Trade‑offs
-- Simplicity first: an in-memory Broker is easy to operate. If you need guaranteed delivery or at-least-once semantics across outages, consider plugging in an external MQ (NATS/Kafka) later.
-- CSV baked into the image: avoids ConfigMap size limits and PVC complexity. The trade‑off is you rebuild the image when the dataset changes. For dynamic sources, replace Streamer’s CSV reader with a live feed.
+- Simplicity first: an in-memory Broker is easy to operate.
+- We have CSV baked into the image: avoids ConfigMap size limits and PVC complexity. The trade‑off is you rebuild the image when the dataset changes. For dynamic sources, replace Streamer’s CSV reader with a live feed.
 - Backpressure everywhere: the Broker won’t just drop on the floor; it signals pressure up to the Streamer. The Collector exposes readiness so Kubernetes can avoid sending it more work if storage is failing.
 - Schema-lite telemetry: metrics are a `map[string]float64`. This makes it easy to ingest diverse fields but shifts stronger typing/validation to storage and consumers.
 - Operational clarity: every component exports Prometheus metrics; there’s a dashboard ready to go. When things go wrong, you shouldn’t be blind.
@@ -106,16 +106,19 @@ Open the diagram for a quick visual:
 
 ## Security Notes
 - Tokens and passwords live in K8s Secrets; Collector/API read via flags/env and should not log secrets.
-- Network is internal (ClusterIP/Headless). Consider NetworkPolicies to restrict cross‑namespace access.
-- Use hardened base images where possible; avoid shells in production images.
+- Network is internal (ClusterIP/Headless). We can add NetworkPolicies to restrict cross‑namespace access if needed.
+- We have used hardened base images where possible; avoid shells in production images.
 
-## Quick Start (for humans)
+## Quick Start
 1. Build and load images into KIND:
    - `make docker-build kind-up kind-load`
+
 2. Install monitoring:
    - `make helm-install-monitoring`
+
 3. Install the app (with in‑cluster InfluxDB):
    - `make helm-install ENABLE_INFLUXDB=1 INFLUX_PASSWORD='...' INFLUX_TOKEN='...'`
+
 4. Port‑forward API and try it:
    - `kubectl -n gpu-telemetry port-forward svc/api-gateway 8080:8080`
    - `curl http://localhost:8080/api/v1/gpus`

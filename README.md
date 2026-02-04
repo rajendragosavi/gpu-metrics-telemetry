@@ -1,8 +1,11 @@
 # GPU Telemetry Pipeline
 
 A lightweight, Kubernetes-first pipeline for ingesting GPU telemetry metrics. It reads metrics from a CSV file and streams them via a gRPC message-broker, persists them into InfluxDB, and exposes data through a simple REST API.
-It has components like - Streamer, Broker, Collector, API Gateway and Influx db storage.
 
+Pipeline has components like - Streamer, Broker, Collector, API Gateway and Influx db storage.
+
+
+![Architecture](architecture/docs/flow-diagram.png)
 
 ---
 
@@ -13,8 +16,7 @@ It has components like - Streamer, Broker, Collector, API Gateway and Influx db 
 - API Gateway exposes REST endpoints to query telemetry (e.g., list GPUs, time-range queries).
 - Prometheus scrapes component metrics; Grafana renders a ready-to-use dashboard.
 
-For a detailed architecture, see:
-- `architecture/docs/architecture.md`
+For a detailed architecture, see [architecture/docs/architecture.md](architecture/docs/architecture.md)
 
 ---
 
@@ -29,9 +31,9 @@ For a detailed architecture, see:
 
 ---
 
-## Build
+## How to build ?
 
-- Git clone the repository.
+- Git clone the ![repository](https://github.com/rajendragosavi/gpu-metrics-telemetry).
 
 - Build all component images locally:
   - `make docker-build`
@@ -39,31 +41,32 @@ For a detailed architecture, see:
   - `make docker-build-streamer` (or `-broker`, `-collector`, `-api`)
 
 Load images into a KIND cluster (if already created):
-- `make kind-load KIND_CLUSTER=<name>`
-  - Or single component: `make kind-load-streamer KIND_CLUSTER=<name>`
+- `make kind-load KIND_CLUSTER=<name>` OR single component: `make kind-load-streamer KIND_CLUSTER=<name>`
 
 ---
 
-## Deploy to KIND (one-shot)
-The fastest way to bootstrap everything into a local KIND cluster:
+## How to deploy to Kind cluster (one-single command)
+The fastest way to bootstrap everything into a local Kind cluster:
 
 1) Create/ensure cluster exists and build+load images, install monitoring, install app:
 - `make kind-deploy PLATFORM=linux/arm64 KIND_CLUSTER=<cluster-name> ENABLE_INFLUXDB=1`
 
-Note: PLATFORM=linux/arm64 - for apple silicon
+Note: If you are using apple silicon, use PLATFORM=linux/arm64
 
 
 What this does:
-- Builds images and loads them into the KIND cluster
+- Creates a kind cluster with Kubernetes version 1.30.0
+- Builds oci images for all components and loads them into the KIND cluster
 - Installs kube-prometheus-stack in the `monitoring` namespace
 - Installs the gpu-telemetry Helm chart in the `gpu-telemetry` namespace
 - If `ENABLE_INFLUXDB=1` is set, it also enables and bootstraps the InfluxDB 2.x subchart using the provided admin credentials (user defaults to `admin`, org to `ai_cluster`, bucket to `telemetry`—overridable via make vars)
 
 
-2) Verify if all components are running:
+2) Once helm chart is deployed, Verify if all components are running:
 - `kubectl -n gpu-telemetry get pods`
 
 3) Port-forward API GW and run curl command to verify /api/v1/gpus endpoint is working:
+
 - `kubectl -n gpu-telemetry port-forward svc/api-gateway 8080:8080`
 
 - `curl http://localhost:8080/api/v1/gpus`
@@ -84,27 +87,23 @@ What this does:
 
 ### Images
 - `make docker-build` / `make docker-build-collector` (etc.)
-  - `make kind-load KIND_CLUSTER=<name>` / `make kind-load-collector` (etc.)
+- `make kind-load KIND_CLUSTER=<name>` / `make kind-load-collector` (etc.)
 
 ### Monitoring
 - `make helm-install-monitoring`
 
-### App install
+### App install/uninstall
 - `make helm-install ENABLE_INFLUXDB=1 INFLUX_PASSWORD='...' INFLUX_TOKEN='...'`
-  - `make helm-uninstall`
+- `make helm-uninstall`
 
 ### Port-forward API
-  - `make port-forward`
+- `make port-forward` - exposes API GW on port 8080
 
 ### Tests and Coverage
-- Run all tests with coverage profile:
-  - `make test`
-- Show coverage summary:
-  - `make cover`
-- Generate HTML coverage report:
-  - `make cover-html` (opens `coverage.html`)
-- Per-package quick coverage:
-  - `make cover-pkg`
+- Run all tests with coverage profile: `make test`
+- Show coverage summary: `make cover`
+- Generate HTML coverage report: `make cover-html` (opens `coverage.html`)
+- Per-package quick coverage: `make cover-pkg`
 
 ### OpenAPI and Swagger
 - The project serves a Swagger UI at `/swagger` (static files under `api/swagger` when generated).
@@ -124,7 +123,9 @@ Once the API Gateway is running and port-forwarded:
 
 ## Grafana Dashboard (What to watch and why)
 
-The chart provisions a ready-to-use dashboard (via ConfigMap) targeting Prometheus. Ensure kube-prometheus-stack is installed in the `monitoring` namespace and the dashboard sidecar picks it up. Each panel below helps you understand system health and throughput.
+The chart provisions a ready-to-use dashboard (via ConfigMap) targeting Prometheus. Ensure kube-prometheus-stack is installed in the `monitoring` namespace. 
+
+Each panel below helps you understand system health and throughput.
 
 Please run this commands to port forward the grafana dashboard:
 
